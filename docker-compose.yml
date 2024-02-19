@@ -1,0 +1,74 @@
+version: '3.6'
+
+volumes:
+  vault-volume:
+
+services:
+  postgres:
+    image: postgres
+    container_name: postgres
+    ports:
+      - "5435:5435"
+      - "8202:8202"
+    environment: &postgres_env
+      POSTGRES_USER: 'postgres'
+      POSTGRES_PASSWORD: 'postgres'
+      POSTGRES_DB: 'postgres'
+      PGPORT: '5435'
+    command: -c 'max_connections=1000'
+
+  vault:
+    image: hashicorp/vault:latest
+    network_mode: "service:postgres" # Use the same network as the postgres container so postgres can have the same hostname "localhost"
+    depends_on:
+      - postgres
+    environment:
+      VAULT_CLUSTER_ADDR: 'http://0.0.0.0:8203'
+      VAULT_API_ADDR: 'http://0.0.0.0:8202'
+      VAULT_LOCAL_CONFIG: '{"listener": [{"tcp": { "address": "0.0.0.0:8202", "tls_disable": true}}], "default_lease_ttl": "168h", "max_lease_ttl": "720h", "ui": true}'
+      VAULT_DEV_ROOT_TOKEN_ID: 'roottoken'
+      VAULT_TOKEN: 'roottoken'
+    cap_add:
+      - IPC_LOCK
+    command: server -dev -dev-root-token-id="roottoken"
+
+  vault-config-init: &terraform
+    image: hashicorp/terraform:latest
+    depends_on:
+      - vault
+    environment: &vault_env
+      VAULT_ADDR: 'http://postgres:8202'
+      VAULT_TOKEN: 'roottoken'
+      PGHOST: 'postgres'
+      PGPORT: '5435'
+      PGUSER: 'postgres'
+      PGPASSWORD: 'postgres'
+      PGDATABASE: 'postgres'
+    volumes:
+      - ./vault-config:/tmp/vault/config:z
+    develop:
+      watch:
+        - path: ./vault-config
+          action: "sync+restart"
+    working_dir: /tmp/vault/config
+    command: init -input=false
+
+  vault-config-apply:
+    <<: *terraform
+    image: hashicorp/terraform:latest
+    depends_on:
+      vault-config-init:
+        condition: service_completed_successfully
+    command: apply -auto-approve -input=false -no-color
+
+  consul-template:
+    image: hashicorp/consul-template:latest
+    depends_on:
+      vault-config-apply:
+        condition: service_completed_successfully
+    environment: *vault_env
+    volumes:
+      - ./data-sources-vault.tpl:/tmp/vault/data-sources-vault.tpl
+      - ./generated:/tmp/vault/generated/
+    working_dir: /tmp/vault
+    command: -template="./data-sources-vault.tpl:./generated/data-sources-vault.json" -vault-renew-token=false -once
