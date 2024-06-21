@@ -14,7 +14,7 @@
 			"folder": "Vault",
 			"configuration": {
                 {{ with $dbconfig := secret (printf "database/config/%s" $role.Data.db_name) -}}
-				"url": "jdbc:{{ $dbconfig.Data.connection_details.connection_url | replaceAll "{{username}}:{{password}}@" "" }}",
+				"url": "jdbc:{{ $dbconfig.Data.connection_details.connection_url | regexReplaceAll "://.*@" "://" | replaceAll "postgres://" "postgresql://" }}",
                 {{ end -}}
 				"configurationType": "URL",
                 {{ if $rolename | contains "prod" -}}
