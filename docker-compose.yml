@@ -38,6 +38,7 @@ services:
       - vault
     environment: &vault_env
       VAULT_ADDR: 'http://postgres:8202'
+      VAULT_ADDR_GENERATED: 'http://localhost:8202'
       VAULT_TOKEN: 'roottoken'
       PGHOST: 'postgres'
       PGPORT: '5435'
@@ -50,6 +51,7 @@ services:
       watch:
         - path: ./vault-config
           action: "sync+restart"
+          target: "/tmp/vault/config"
     working_dir: /tmp/vault/config
     command: init -input=false
 

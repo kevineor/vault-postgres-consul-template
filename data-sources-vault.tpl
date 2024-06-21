@@ -25,7 +25,7 @@
 				"provider-properties": {},
 				"auth-model": "vault",
 				"auth-properties": {
-					"address": "{{env "VAULT_ADDR"}}",
+					"address": "{{env "VAULT_ADDR_GENERATED"}}",
 					"secret": "database/creds/{{ $rolename }}"
 				}
 			}
