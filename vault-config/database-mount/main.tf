@@ -16,7 +16,8 @@ resource "vault_database_secret_backend_role" "role_dev" {
   db_name = vault_database_secret_backend_connection.postgres.name
   creation_statements = [
     "CREATE ROLE \"{{name}}\" WITH LOGIN PASSWORD '{{password}}' VALID UNTIL '{{expiration}}';",
-    "GRANT SELECT ON ALL TABLES IN SCHEMA public TO \"{{name}}\";",
+    "GRANT ALL ON ALL TABLES IN SCHEMA public TO \"{{name}}\";",
+    "GRANT CREATE ON SCHEMA public TO \"{{name}}\";",
   ]
 }
 
